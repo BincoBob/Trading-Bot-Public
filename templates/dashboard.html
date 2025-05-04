@@ -1,0 +1,176 @@
+{% extends 'layout.html' %}
+
+{% block title %} - Dashboard{% endblock %}
+
+{% block head %}
+<!-- Auto refresh removed - now using JavaScript for dynamic updates -->
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1 class="mb-3">Trading Dashboard</h1>
+    </div>
+    <div class="col-md-4 text-end">
+        <div class="mb-2">
+            <button id="toggleBotBtn" class="btn btn-lg btn-danger">
+                <i class="fas fa-robot me-2"></i><span id="botStatusText">Enable Trading Bot</span>
+            </button>
+        </div>
+        <!-- API Status Display -->
+        <div class="card mt-2">
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold">API Status:</span>
+                    <span id="apiStatusBadge" class="badge bg-secondary">Checking...</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    <span class="small fw-bold">Data Source:</span>
+                    <span id="apiSourceBadge" class="badge bg-info">Loading...</span>
+                </div>
+                <div id="apiCooldownInfo" class="small text-muted mt-1" style="display: none;">
+                    Cooldown until: <span id="cooldownUntil">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Column: Price Charts and Data -->
+    <div class="col-lg-8">
+        <!-- Bitcoin Price Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fab fa-bitcoin text-warning me-2"></i>Bitcoin Price
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" id="refreshPrice">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <div class="btn-group btn-group-sm ms-2" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" data-timeframe="1">1D</button>
+                        <button type="button" class="btn btn-outline-secondary" data-timeframe="7">1W</button>
+                        <button type="button" class="btn btn-outline-secondary" data-timeframe="30">1M</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 id="currentPrice" class="mb-0">$--,---</h2>
+                    <span id="priceChange" class="badge bg-secondary">--</span>
+                </div>
+                <div class="text-muted small mb-3">Last updated: <span id="lastUpdated">--</span></div>
+                <div class="price-chart-container">
+                    <canvas id="priceChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coin Cards Container -->
+        <!-- Coin Cards Container -->
+        <div class="row mt-4" id="coinCardsContainer">
+            
+        </div>
+
+        
+
+        <!-- Moving Average Analysis -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line text-info me-2"></i>Moving Average Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Current Price:</span>
+                            <span id="maCurrentPrice" class="fw-bold">$--,---</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Moving Average (3):</span>
+                            <span id="movingAverage" class="fw-bold">$--,---</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Difference:</span>
+                            <span id="priceDifference" class="fw-bold">$--</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert" id="tradingSignal">
+                            Waiting for data...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-exchange-alt text-success me-2"></i>Recent Trades
+                </h5>
+                <a href="/history" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Type</th>
+                                <th>Amount (BTC)</th>
+                                <th>Price</th>
+                                <th>Value (USD)</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTradesTable">
+                            <tr>
+                                <td colspan="5" class="text-center py-3">Loading recent trades...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Portfolio & Trading -->
+    <div class="col-lg-4">
+        <!-- (Portfolio Summary und Trading Tabs bleiben unverändert) -->
+        {{ super() }}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function loadCoinCards() {
+        fetch('/api/coins')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('coinCardsContainer');
+                container.innerHTML = '';
+                data.forEach(coin => {
+                    const card = document.createElement('div');
+                    card.classList.add('col-md-6', 'mb-4');
+                    card.innerHTML = coin.details;
+                    container.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error('Fehler beim Laden der Coin-Daten:', error);
+            });
+    }
+    loadCoinCards();
+    setInterval(loadCoinCards, 10000);
+    </script>
+    
+    
+<script src="{{ url_for('static', filename='js/charts.js') }}?v={{ range(1, 100000) | random }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ range(1, 100000) | random }}"></script>
+{% endblock %}

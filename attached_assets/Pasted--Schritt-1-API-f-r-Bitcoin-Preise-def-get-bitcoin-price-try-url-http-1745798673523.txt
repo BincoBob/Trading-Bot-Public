@@ -1,0 +1,189 @@
+# === Schritt 1: API für Bitcoin-Preise ===
+def get_bitcoin_price():
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        price = data['bitcoin']['usd']
+        return price
+    except requests.RequestException as e:
+        print(f"Fehler beim Abrufen des Bitcoin-Preises: {e}")
+        return None
+
+def lade_konfiguration():
+    import json  # JSON-Bibliothek sicherstellen
+    try:
+        with open('config.json', 'r') as file:
+            return json.load(file)  # JSON-Datei laden und zurückgeben
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Fehler beim Laden der Konfigurationsdatei: {e}")
+        return {"verkaufswert": 94500}  # Standardwert als Fallback
+
+
+# === Schritt 2: Guthaben und Bitcoin-Bestand ===
+guthaben = 100.0  # Startkapital in USD
+bitcoin_bestand = 0.0  # Anfangs kein Bitcoin
+preise = [] # Liste zum speichern der letzten Preise
+letzter_preis = None  # Variable für den letzten Preis
+
+# Kauf-Funktion
+def kaufen(aktueller_preis, betrag_usd):
+    global guthaben, bitcoin_bestand
+    if betrag_usd > guthaben:
+        print("Fehler: Nicht genug Guthaben zum Kaufen!")
+        return
+    menge_btc = betrag_usd / aktueller_preis
+    bitcoin_bestand += menge_btc
+    guthaben -= betrag_usd
+    print(f"Gekauft: {menge_btc:.6f} BTC für {betrag_usd}$ bei Preis {aktueller_preis}$")
+    print(f"Aktueller Stand: Guthaben: {guthaben}$ | Bitcoin-Bestand: {bitcoin_bestand} BTC\n")
+    # Trade speichern
+    speichere_trade("kauf", aktueller_preis, menge_btc)
+# Verkaufs-Funktion
+def verkaufen(aktueller_preis, menge_btc):
+    global guthaben, bitcoin_bestand
+    if menge_btc > bitcoin_bestand:
+        print("Fehler: Du hast nicht genug Bitcoin zum Verkaufen!")
+        return
+    erlös = menge_btc * aktueller_preis
+    bitcoin_bestand -= menge_btc
+    guthaben += erlös
+    print(f"Verkauft: {menge_btc:.6f} BTC für {erlös}$ bei Preis {aktueller_preis}$")
+    print(f"Aktueller Stand: Guthaben: {guthaben}$ | Bitcoin-Bestand: {bitcoin_bestand} BTC\n")
+    # Trade speichern
+    speichere_trade("verkauf", aktueller_preis, menge_btc)
+# === Schritt 3: Endlosschleife für Live-Trading ===
+print(f"Startkapital: {guthaben}$ | Bitcoin-Bestand: {bitcoin_bestand} BTC\n")
+
+import json  # Importieren für Dateioperationen
+from datetime import datetime  # Importieren für Zeitstempel
+
+# Liste der Trades
+trades = []
+
+
+def kaufen_dynamic(aktueller_preis, prozent_des_guthabens):
+    global guthaben, bitcoin_bestand
+    betrag_usd = guthaben * prozent_des_guthabens  # Kaufe x% des Guthabens
+
+    # Prüfen, ob Guthaben ausreicht
+    if betrag_usd > guthaben:
+        print(f"Guthaben zu niedrig! Kaufe nur mit verfügbarem Restbetrag von {guthaben}$")
+        betrag_usd = guthaben  # Verwende das gesamte verbleibende Guthaben
+
+    # BTC-Menge berechnen und aktualisieren
+    menge_btc = betrag_usd / aktueller_preis
+    bitcoin_bestand += menge_btc
+    guthaben -= betrag_usd
+    print(f"Dynamisch gekauft: {menge_btc:.6f} BTC für {betrag_usd}$ bei Preis {aktueller_preis}$")
+
+    # **Stand aktualisieren**
+    print(f"Aktuelles Guthaben: {guthaben:.2f}$ | Aktueller BTC-Bestand: {bitcoin_bestand:.6f} BTC")
+
+    # Trade speichern
+    speichere_trade("kauf", aktueller_preis, menge_btc)
+
+
+# Dynamische Verkaufs-Funktion
+def verkaufen_dynamic(aktueller_preis, prozent_des_bestands):
+    global guthaben, bitcoin_bestand
+    menge_btc = bitcoin_bestand * prozent_des_bestands  # Verkaufe x% des Bitcoin-Bestands
+
+    # Prüfen, ob Bestand ausreicht
+    if menge_btc > bitcoin_bestand:
+        print(f"Bitcoin-Bestand zu niedrig! Verkaufe nur mit verfügbarem Bestand von {bitcoin_bestand} BTC")
+        menge_btc = bitcoin_bestand  # Verwende den gesamten verbleibenden Bestand
+
+    # Verkaufserlös berechnen und Bestand aktualisieren
+    erlös = menge_btc * aktueller_preis
+    bitcoin_bestand -= menge_btc
+    guthaben += erlös
+    print(f"Dynamisch verkauft: {menge_btc:.6f} BTC für {erlös}$ bei Preis {aktueller_preis}$")
+
+    # **Stand aktualisieren**
+    print(f"Aktuelles Guthaben: {guthaben:.2f}$ | Aktueller BTC-Bestand: {bitcoin_bestand:.6f} BTC")
+
+    # Trade speichern
+    speichere_trade("verkauf", aktueller_preis, menge_btc)
+
+# Funktion zum Speichern eines Trades
+def speichere_trade(typ, preis, menge):
+    zeit = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Aktuelle Zeit
+    trade = {"typ": typ, "preis": preis, "menge": menge, "zeit": zeit}
+    trades.append(trade)  # Füge Trade zur Liste hinzu
+
+    # Trades in Datei speichern
+    with open('trades.json', 'w') as file:
+        json.dump(trades, file, indent=4)
+    print(f"Trade gespeichert: {trade}")
+
+
+def berechne_gleitenden_durchschnitt(preise, fenster):
+    if len(preise) < fenster:  # Wenn es nicht genug Preise gibt
+        return None
+    return sum(preise[-fenster:]) / fenster  # Durchschnitt der letzten "fenster" Preise
+
+def ist_aufwärtstrend(preise, fenster=3):
+    """Prüft, ob die letzten Preise einen Aufwärtstrend zeigen."""
+    if len(preise) < fenster:  # Nicht genug Daten
+        return False
+    return all(preise[i] < preise[i+1] for i in range(-fenster, -1))  # Preise steigen
+
+# === Hauptprogramm ===
+try:
+    print(f"Startkapital: {guthaben}$ | Bitcoin-Bestand: {bitcoin_bestand} BTC\n")
+
+    while True:
+        # Konfigurationswerte aus JSON-Datei laden
+        config = lade_konfiguration()
+        verkaufswert = config["verkaufswert"]
+
+        # Aktuellen Preis abrufen
+        aktueller_preis = get_bitcoin_price()
+        if aktueller_preis is not None:
+            print(f"Aktueller Bitcoin-Preis: {aktueller_preis}$")
+
+            # Preis in die Liste speichern
+            preise.append(aktueller_preis)
+            if len(preise) > 10:  # Halte maximal 10 Preise in der Liste
+                preise.pop(0)
+
+            # Gleitenden Durchschnitt berechnen
+            durchschnitt = berechne_gleitenden_durchschnitt(preise, 3)  # Durchschnitt über 3 Preise
+            if durchschnitt:
+                print(f"Gleitender Durchschnitt: {durchschnitt}$")
+
+                # Differenz berechnen und ausgeben
+                differenz = aktueller_preis - durchschnitt
+                print(f"Differenz zum Durchschnitt: {differenz:.2f}$")
+
+                # Dynamische Kaufstrategie: Kleiner Anstieg, weiterhin kaufen
+                if aktueller_preis > durchschnitt and aktueller_preis <= durchschnitt + 5:
+                    kaufen_dynamic(aktueller_preis, 0.05)  # Kaufe 5% des Guthabens
+
+                # Dynamische Verkaufsstrategie: Moderate und große Anstiege
+                elif aktueller_preis > durchschnitt + 5 and aktueller_preis <= durchschnitt + 10:
+                    verkaufen_dynamic(aktueller_preis, 0.25)  # Verkaufe 25% des Bestands
+                elif aktueller_preis > durchschnitt + 10:
+                    verkaufen_dynamic(aktueller_preis, 0.5)  # Verkaufe 50% des Bestands
+
+                # Zusätzliche Verkaufsoption basierend auf JSON-Verkaufswert
+                elif aktueller_preis > verkaufswert:
+                    print(f"Preis über Verkaufswert von {verkaufswert}$ – Verkaufe BTC!")
+                    verkaufen_dynamic(aktueller_preis, 0.25)  # Verkaufe 25% des Bestands
+
+        else:
+            print("Fehler beim Abrufen des Preises. Warte auf nächsten Versuch...")
+
+        # Pause zwischen den Abfragen
+        time.sleep(30)
+
+except KeyboardInterrupt:
+    print("\n--- Trading beendet ---")
+finally:
+    print("\n--- Endergebnis ---")
+    print(f"Guthaben: {guthaben:.2f}$ | Bitcoin-Bestand: {bitcoin_bestand:.6f} BTC")
+    print("\n--- Alle Trades ---")
+    for trade in trades:
+        print(trade)

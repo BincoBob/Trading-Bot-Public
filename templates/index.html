@@ -1,0 +1,79 @@
+{% extends 'layout.html' %}
+
+{% block title %} - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="card-title text-center mb-4">
+                    <i class="fab fa-bitcoin text-warning me-2"></i>Bitcoin Trading Bot
+                </h1>
+                
+                <div class="alert alert-info">
+                    <h4 class="alert-heading">Welcome to your automated Bitcoin trading platform!</h4>
+                    <p>This application allows you to monitor Bitcoin prices in real-time and execute trades based on customizable strategies.</p>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Features</h5>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><i class="fas fa-chart-line text-success me-2"></i>Real-time Bitcoin price monitoring</li>
+                                    <li class="list-group-item"><i class="fas fa-robot text-primary me-2"></i>Automated trading strategies</li>
+                                    <li class="list-group-item"><i class="fas fa-sliders-h text-warning me-2"></i>Customizable trading parameters</li>
+                                    <li class="list-group-item"><i class="fas fa-history text-info me-2"></i>Detailed trading history</li>
+                                    <li class="list-group-item"><i class="fas fa-chart-pie text-danger me-2"></i>Performance visualization</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-secondary text-white">
+                                <h5 class="mb-0"><i class="fas fa-play-circle me-2"></i>Getting Started</h5>
+                            </div>
+                            <div class="card-body">
+                                <ol class="list-group list-group-numbered">
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">View the Dashboard</div>
+                                            Monitor real-time prices and your portfolio
+                                        </div>
+                                        <a href="/dashboard" class="btn btn-sm btn-primary"><i class="fas fa-arrow-right"></i></a>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Configure Parameters</div>
+                                            Customize your trading strategy
+                                        </div>
+                                        <a href="/config" class="btn btn-sm btn-primary"><i class="fas fa-arrow-right"></i></a>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="ms-2 me-auto">
+                                            <div class="fw-bold">Review Trade History</div>
+                                            Analyze your past trades
+                                        </div>
+                                        <a href="/history" class="btn btn-sm btn-primary"><i class="fas fa-arrow-right"></i></a>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="/dashboard" class="btn btn-lg btn-success">
+                        <i class="fas fa-chart-line me-2"></i>Go to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

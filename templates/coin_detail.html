@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %} - {{ coin.symbol }} Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ coin.symbol }} Details</h2>
+    <ul class="list-group mb-3">
+        <li class="list-group-item">Preis: {{ coin.price }}</li>
+        <li class="list-group-item">minQty: {{ coin.minQty }}</li>
+        <li class="list-group-item">Minimale Investition: {{ coin.minValueUSD }} USD</li>
+        <li class="list-group-item">Volatilität (simuliert): {{ coin.volatility }}</li>
+        <li class="list-group-item">24h Volumen: {{ coin.volume }} USD</li>
+        <li class="list-group-item">Wallet Bestand: {{ coin.walletPosition }}</li>
+    </ul>
+
+    <div class="card">
+        <div class="card-body">
+            <iframe 
+                src="https://www.tradingview.com/embed-widget/symbol-overview/?locale=de&symbols=MEXC:{{ coin.symbol }}&isTransparent=true&colorTheme=dark&autosize=true"
+                style="width: 100%; height: 300px; border: none;">
+            </iframe>
+        </div>
+    </div>
+
+    <a href="/" class="btn btn-secondary mt-3">← Zurück</a>
+</div>
+{% endblock %}

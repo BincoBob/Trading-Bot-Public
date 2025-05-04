@@ -1,0 +1,136 @@
+/* Custom styles for Bitcoin Trading Bot */
+
+/* Dashboard section styles */
+.price-chart-container {
+    height: 250px;
+    position: relative;
+}
+
+/* Card styling */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+/* Bitcoin styling */
+.fab.fa-bitcoin {
+    color: #f2a900;
+}
+
+/* Custom badge colors */
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+/* Trade history styles */
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* Portfolio allocation progress bar */
+.progress {
+    height: 25px;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.progress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    transition: width 0.5s ease;
+}
+
+/* Form control focus effect */
+.form-control:focus {
+    border-color: #f2a900;
+    box-shadow: 0 0 0 0.25rem rgba(242, 169, 0, 0.25);
+}
+
+/* Button hover effects */
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* Moving average analysis styling */
+#tradingSignal {
+    font-weight: bold;
+    padding: 1rem;
+}
+
+/* Footer styling */
+footer {
+    margin-top: auto;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+    .card-header .btn-group {
+        margin-top: 0.5rem;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .card-header .btn-group {
+        align-self: flex-end;
+    }
+}
+
+/* Dark theme tweaks */
+[data-bs-theme=dark] .table-striped>tbody>tr:nth-of-type(odd)>* {
+    --bs-table-accent-bg: rgba(255, 255, 255, 0.05);
+}
+
+[data-bs-theme=dark] .alert-info {
+    background-color: rgba(23, 162, 184, 0.2);
+    border-color: rgba(23, 162, 184, 0.3);
+}
+
+[data-bs-theme=dark] .alert-success {
+    background-color: rgba(40, 167, 69, 0.2);
+    border-color: rgba(40, 167, 69, 0.3);
+}
+
+[data-bs-theme=dark] .alert-warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+[data-bs-theme=dark] .alert-danger {
+    background-color: rgba(220, 53, 69, 0.2);
+    border-color: rgba(220, 53, 69, 0.3);
+}

@@ -1,0 +1,179 @@
+{% extends 'layout.html' %}
+
+{% block title %} - Configuration{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0"><i class="fas fa-cog me-2"></i>Trading Bot Configuration</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Configure your trading parameters to optimize your strategy. These settings control how the automated trading bot makes decisions.
+                </div>
+                
+                <form method="POST" action="/config">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">Price Thresholds</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="verkaufswert" class="form-label">Sell Threshold (USD)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" id="verkaufswert" name="verkaufswert" 
+                                                   value="{{ config.verkaufswert }}" min="1" step="0.01" required>
+                                        </div>
+                                        <div class="form-text">The Bitcoin price at which to trigger selling</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">Trading Percentages</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="buying_percentage" class="form-label">Buy Percentage</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="buying_percentage" name="buying_percentage" 
+                                                   value="{{ config.buying_percentage }}" min="0.01" max="1" step="0.01" required>
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                        <div class="form-text">Percentage of balance to use when buying (0.05 = 5%)</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="selling_percentage_moderate" class="form-label">Moderate Sell Percentage</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="selling_percentage_moderate" name="selling_percentage_moderate" 
+                                                   value="{{ config.selling_percentage_moderate }}" min="0.01" max="1" step="0.01" required>
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                        <div class="form-text">Percentage of BTC to sell on moderate price increase (0.25 = 25%)</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="selling_percentage_high" class="form-label">High Sell Percentage</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="selling_percentage_high" name="selling_percentage_high" 
+                                                   value="{{ config.selling_percentage_high }}" min="0.01" max="1" step="0.01" required>
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                        <div class="form-text">Percentage of BTC to sell on high price increase (0.5 = 50%)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">Analysis Parameters</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="ma_window" class="form-label">Moving Average Window</label>
+                                        <input type="number" class="form-control" id="ma_window" name="ma_window" 
+                                               value="{{ config.ma_window }}" min="2" max="10" step="1" required>
+                                        <div class="form-text">Number of price points to calculate moving average (recommended: 3-5)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">Timing Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="price_check_interval" class="form-label">Price Check Interval (seconds)</label>
+                                        <input type="number" class="form-control" id="price_check_interval" name="price_check_interval" 
+                                               value="{{ config.price_check_interval }}" min="10" max="300" step="1" required>
+                                        <div class="form-text">Time between price checks and trading decisions (in seconds)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo me-2"></i>Reset to Default
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0"><i class="fas fa-info-circle me-2"></i>Strategy Explanation</h3>
+            </div>
+            <div class="card-body">
+                <h5>How the Trading Bot Works</h5>
+                <p>The Bitcoin trading bot uses a moving average strategy to make buy and sell decisions:</p>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Condition</th>
+                                <th>Action</th>
+                                <th>Explanation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Price > MA and Price ≤ MA + $5</td>
+                                <td>Buy <span class="badge bg-success">{{ config.buying_percentage * 100 }}%</span> of balance</td>
+                                <td>Small upward trend detected, buying opportunity</td>
+                            </tr>
+                            <tr>
+                                <td>Price > MA + $5 and Price ≤ MA + $10</td>
+                                <td>Sell <span class="badge bg-warning">{{ config.selling_percentage_moderate * 100 }}%</span> of BTC</td>
+                                <td>Moderate price increase, take some profit</td>
+                            </tr>
+                            <tr>
+                                <td>Price > MA + $10</td>
+                                <td>Sell <span class="badge bg-danger">{{ config.selling_percentage_high * 100 }}%</span> of BTC</td>
+                                <td>Significant price increase, take larger profit</td>
+                            </tr>
+                            <tr>
+                                <td>Price > Sell Threshold ({{ config.verkaufswert }})</td>
+                                <td>Sell <span class="badge bg-warning">25%</span> of BTC</td>
+                                <td>Price exceeded predefined threshold</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Disclaimer:</strong> Trading cryptocurrencies involves risk. This bot is provided for educational and demonstration purposes only. Never invest money you cannot afford to lose.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/config.js') }}"></script>
+{% endblock %}

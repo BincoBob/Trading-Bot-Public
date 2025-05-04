@@ -1,0 +1,8 @@
+{
+    "verkaufswert": 90000.0,
+    "buying_percentage": 0.15,
+    "selling_percentage_moderate": 0.15,
+    "selling_percentage_high": 0.25,
+    "ma_window": 9,
+    "price_check_interval": 20
+}
