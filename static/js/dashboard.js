@@ -30,6 +30,13 @@ function formatBitcoin(amount) {
     return amount.toFixed(8) + ' BTC';
 }
 
+function formatPrice(value) {
+    const num = parseFloat(value);
+    if (num === 0) return "$0.00000000";
+    return num < 0.000001 ? `$${num.toExponential(2)}` : `$${num.toFixed(8)}`;
+}
+
+
 // Function to refresh the current Bitcoin price
 function refreshPrice() {
     fetch('/api/current_price')
@@ -101,41 +108,24 @@ function refreshPortfolio() {
     fetch('/api/portfolio')
         .then(response => response.json())
         .then(data => {
-            portfolioData = data;
-            
-            // Update portfolio display
-            document.getElementById('portfolioValue').textContent = formatCurrency(data.portfolio_value);
-            document.getElementById('usdBalance').textContent = formatCurrency(data.balance);
-            document.getElementById('btcBalance').textContent = formatBitcoin(data.bitcoin);
-            
-            // Update available amounts in trading forms
-            document.getElementById('availableUSD').textContent = formatCurrency(data.balance);
-            document.getElementById('availableBTC').textContent = formatBitcoin(data.bitcoin);
-            
-            // Update portfolio allocation
-            const usdValue = data.balance;
-            const btcValue = data.bitcoin * currentPrice;
-            const totalValue = usdValue + btcValue;
-            
-            if (totalValue > 0) {
-                const usdPercentage = (usdValue / totalValue) * 100;
-                const btcPercentage = (btcValue / totalValue) * 100;
-                
-                const usdElement = document.getElementById('usdPercentage');
-                const btcElement = document.getElementById('btcPercentage');
-                
-                usdElement.style.width = `${usdPercentage}%`;
-                usdElement.setAttribute('aria-valuenow', usdPercentage);
-                usdElement.textContent = `USD ${usdPercentage.toFixed(1)}%`;
-                
-                btcElement.style.width = `${btcPercentage}%`;
-                btcElement.setAttribute('aria-valuenow', btcPercentage);
-                btcElement.textContent = `BTC ${btcPercentage.toFixed(1)}%`;
-            }
+    // Update Wallet-Anzeige
+        document.getElementById('usdt-balance').textContent = formatCurrency(data.balance);
+        document.getElementById('btc-balance').textContent = formatBitcoin(data.bitcoin);
+        document.getElementById('total-value').textContent = formatCurrency(data.portfolio_value);
+    
+    // Falls du Coin-Liste anzeigen willst (positions oder so)
+    // document.getElementById('positions-list').innerHTML = ''; // Clear list first
+    // data.positions.forEach(coin => {
+    //   const li = document.createElement('li');
+    //   li.textContent = `${coin.symbol}: ${coin.amount}`;
+    //   document.getElementById('positions-list').appendChild(li);
+    // });
+
         })
         .catch(error => {
-            console.error('Error fetching portfolio data:', error);
+        console.error('Error fetching wallet data:', error);
         });
+
 }
 
 // Function to get recent trades
@@ -514,33 +504,64 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+function refreshTopCoins() {
+    // (Hier kommt der Code rein)
+    fetch('/api/coins')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('topVolatileCoins');
+            container.innerHTML = ''; // leeren
+
+            data.forEach(coin => {
+                const coinDiv = document.createElement('div');
+                coinDiv.className = 'col-md-2 text-center';
+                coinDiv.innerHTML = `
+                    <div class="card p-2 mb-2">
+                        <h5>${coin.symbol}</h5>
+                        <p>Preis: ${formatPrice(coin.price)}</p>
+                        <p>min USD für 5 Stück: ${formatPrice(coin.minValueUSD)}</p>
+                    </div>
+                `;
+                container.appendChild(coinDiv);
+            });
+        })
+        .catch(error => {
+            console.error('Fehler beim Laden der Coins:', error);
+        });
+
+  }
+  setInterval(refreshTopCoins, 30000);  // alle 30 Sekunden neu laden
+  refreshTopCoins();  // sofort beim Laden ausführen
+    
+
 
 // 🧠 Portfolio-Daten vom Server laden und anzeigen
-function updatePortfolio() {
-  fetch("/portfolio_data")
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        console.error("Fehler beim Laden der Portfolio-Daten:", data.error);
-        return;
-      }
+//function updatePortfolio() {
+  //fetch("/portfolio_data")
+    //.then(res => res.json())
+    //.then(data => {
+     // if (data.error) {
+        //console.error("Fehler beim Laden der Portfolio-Daten:", data.error);
+       // return;
+     // }
+//
+    //  document.getElementById("btcBalance").innerText = data.btc.toFixed(6);
+    //  document.getElementById("usdBalance").innerText = `$${data.usd.toFixed(2)}`;
+    //  document.getElementById("portfolioValue").innerText = `$${data.total.toFixed(2)}`;
+//
+    //  document.getElementById("btcPercentage").style.width = `${data.btc_percent}%`;
+    //  document.getElementById("usdPercentage").style.width = `${data.usd_percent}%`;
+//
+    //  document.getElementById("btcPercentage").innerText = `BTC ${data.btc_percent.toFixed(1)}%`;
+    //  document.getElementById("usdPercentage").innerText = `USD ${data.usd_percent.toFixed(1)}%`;
+   // })
+ //   .catch(err => {
+//      console.error("Fehler beim Laden der Portfolio-Daten:", err);
+//    });
+//}
 
-      document.getElementById("btcBalance").innerText = data.btc.toFixed(6);
-      document.getElementById("usdBalance").innerText = `$${data.usd.toFixed(2)}`;
-      document.getElementById("portfolioValue").innerText = `$${data.total.toFixed(2)}`;
-
-      document.getElementById("btcPercentage").style.width = `${data.btc_percent}%`;
-      document.getElementById("usdPercentage").style.width = `${data.usd_percent}%`;
-
-      document.getElementById("btcPercentage").innerText = `BTC ${data.btc_percent.toFixed(1)}%`;
-      document.getElementById("usdPercentage").innerText = `USD ${data.usd_percent.toFixed(1)}%`;
-    })
-    .catch(err => {
-      console.error("Fehler beim Laden der Portfolio-Daten:", err);
-    });
-}
-
-// Beim Laden der Seite automatisch starten
 document.addEventListener("DOMContentLoaded", () => {
-  updatePortfolio();
-});
+    refreshTopCoins();
+    setInterval(refreshTopCoins, 30000);  // alle 30 Sekunden neu laden
+  });
+  

@@ -98,6 +98,46 @@ def get_mexc_balances():
         logging.error(f"Fehler in get_mexc_balances: {e}")
         return 0.0, 0.0
 
+def get_mexc_wallet_positions():
+    """Lädt alle Wallet-Positionen vom MEXC-Konto"""
+    try:
+        endpoint = "/api/v3/account"
+        url = f"{base_url}{endpoint}"
+        timestamp = int(time.time() * 1000)
+
+        params = {
+            "timestamp": timestamp
+        }
+        params["signature"] = sign_request(params, SECRET_KEY)
+        headers = {
+            "X-MEXC-APIKEY": API_KEY
+        }
+
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        usdt_balance = 0.0
+        positions = {}
+
+        for asset in data.get("balances", []):
+            free = float(asset["free"])
+            symbol = asset["asset"]
+
+            if free > 0:
+                if symbol == "USDT":
+                    usdt_balance = free
+                else:
+                    positions[symbol + "USDT"] = free  # z. B. "DOGE" → "DOGEUSDT"
+
+        return usdt_balance, positions
+
+    except Exception as e:
+        logging.error(f"❌ Fehler beim Laden der Wallet-Positionen: {e}")
+        return 0.0, {}
+
+
+
 
 # ✅ Effektive Market-Order platzieren (BUY/SELL)
 def place_market_order(symbol, side, quantity=None, quoteOrderQty=None):

@@ -12,6 +12,8 @@ import random
 
 # NEU
 from mexc_handler import get_current_price as get_mexc_price
+from trading_bot import wallet, get_mexc_cheap_coins
+
 
 
 # Logging aktivieren
@@ -343,10 +345,6 @@ def get_price():
         traceback.print_exc()
         return jsonify({"preis": f"Fehler: {str(e)}"}), 500
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
 @app.route('/api/bad_patterns')
 def get_bad_patterns():
     """Returns bad_patterns.json content if it exists"""
@@ -386,11 +384,9 @@ def get_memory():
         return jsonify({"error": str(e)}), 500
 
 
-
-
 @app.route('/portfolio_data')
 def portfolio_data():
-    from mexc_handler import get_mexc_price, get_mexc_balances
+    from mexc_handler import get_current_price as get_mexc_price, get_mexc_balances
     preis = get_mexc_price()
     guthaben, bitcoin_bestand = get_mexc_balances()
 
@@ -408,3 +404,16 @@ def portfolio_data():
         "btc_percent": round(btc_percent, 2),
         "usd_percent": round(usd_percent, 2)
     })
+
+@app.route("/api/wallet")
+def api_wallet():
+    return jsonify(wallet)
+
+@app.route("/api/coins")
+def api_coins():
+    coins = get_mexc_cheap_coins(limit_usd=5, max_results=5)
+    return jsonify(coins)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

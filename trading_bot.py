@@ -34,6 +34,11 @@ PriceHistory = None
 # Trading variables
 guthaben, bitcoin_bestand = get_mexc_balances()
 
+wallet = {
+    "USDT": guthaben,
+    "positions": {}
+}
+
 
 preise = []  # List to store recent prices
 letzter_preis = None  # Variable for the last price
@@ -425,57 +430,75 @@ def verkaufen(aktueller_preis, menge_btc):
         return False
 
 
-def kaufen_dynamic(aktueller_preis, prozent_des_guthabens):
+def kaufen_dynamic(aktueller_preis, prozent_des_guthabens, symbol="BTCUSDT"):
     global guthaben, bitcoin_bestand
 
     try:
+        # ❌ Deaktivierter BTC-Kauf
+        if symbol == "BTCUSDT":
+            logging.info("⛔️ Automatischer BTC-Kauf ist dauerhaft deaktiviert.")
+            return False
+
         betrag_usd = guthaben * prozent_des_guthabens
         min_kauf_usd = 5.0  # Mindestbetrag für die Order in USD
-        min_btc = 0.0001    # Mindestmenge laut MEXC
 
-        # Wenn Kaufbetrag kleiner als Mindestbetrag ist, prüfe ob genug USD für min_btc vorhanden ist
         if betrag_usd < min_kauf_usd:
-            min_betrag = min_btc * aktueller_preis
-            if guthaben >= min_betrag:
-                betrag_usd = min_betrag  # Handle mit Mindestbetrag
-                logging.info(f"💡 Erzwungener Mindestkauf: {min_btc:.6f} BTC für ca. ${betrag_usd:.2f}")
-            else:
-                logging.warning(f"❌ Kaufbetrag zu gering und nicht genug Guthaben: ${betrag_usd:.2f}")
-                return False
+            logging.warning(f"❌ Kaufbetrag zu gering (${betrag_usd:.2f}) – Mindestkauf: ${min_kauf_usd}")
+            return False
 
-        return kaufen(aktueller_preis, betrag_usd)
+        result = place_market_order(symbol, "BUY", quantity=round(betrag_usd / aktueller_preis, 6))
+
+        if result and "orderId" in result:
+            menge = betrag_usd / aktueller_preis
+            wallet["USDT"] -= betrag_usd
+            wallet["positions"][symbol] = wallet["positions"].get(symbol, 0) + menge
+            speichere_trade("kauf", aktueller_preis, menge)
+            logging.info(f"✅ Coin gekauft: {symbol} | {menge:.6f} Stück für ${betrag_usd:.2f}")
+            return True
+        else:
+            logging.error(f"❌ Kauf fehlgeschlagen für {symbol}: {result}")
+            return False
 
     except Exception as e:
         logging.error(f"❌ Fehler in kaufen_dynamic: {e}")
         return False
 
 
-
-
-
-def verkaufen_dynamic(aktueller_preis, prozent_des_bestands):
-    global guthaben, bitcoin_bestand
+def verkaufen_dynamic(aktueller_preis, prozent_des_bestands, symbol_override=None):
+    global guthaben, bitcoin_bestand, wallet
 
     try:
-        menge_btc = bitcoin_bestand * prozent_des_bestands
-        min_btc = 0.0001  # Mindestmenge laut MEXC
-        erloes = menge_btc * aktueller_preis
+        # ❌ Deaktivierter BTC-Verkauf
+        if symbol_override is None:
+            logging.info("⛔️ Automatischer BTC-Verkauf ist dauerhaft deaktiviert.")
+            return False
 
-        # Wenn Menge zu klein ist, prüfe ob genug BTC für Mindestmenge da ist
-        if menge_btc < min_btc:
-            if bitcoin_bestand >= min_btc:
-                menge_btc = min_btc
-                erloes = menge_btc * aktueller_preis
-                logging.info(f"💡 Erzwungener Mindestverkauf: {menge_btc:.6f} BTC für ca. ${erloes:.2f}")
-            else:
-                logging.warning(f"❌ Zu wenig BTC für Mindestverkauf: {bitcoin_bestand:.6f} BTC < {min_btc} BTC")
-                return False
+        # ✅ Verkauf eines spezifischen Coins (z. B. ETHUSDT)
+        symbol = symbol_override
+        menge = wallet["positions"].get(symbol, 0)
 
-        return verkaufen(aktueller_preis, menge_btc)
+        if menge <= 0:
+            logging.warning(f"⚠️ Keine Position für {symbol} vorhanden – kein Verkauf möglich.")
+            return False
+
+        result = place_market_order(symbol, "SELL", quantity=round(menge, 6))
+
+        if result and "orderId" in result:
+            erloes = menge * aktueller_preis
+            wallet["USDT"] += erloes
+            del wallet["positions"][symbol]
+            speichere_trade("verkauf", aktueller_preis, menge)
+            logging.info(f"✅ Coin verkauft: {symbol} | {menge:.6f} Stück für ca. ${erloes:.2f}")
+            return True
+        else:
+            logging.error(f"❌ Verkauf fehlgeschlagen für {symbol}: {result}")
+            return False
 
     except Exception as e:
         logging.error(f"❌ Fehler in verkaufen_dynamic: {e}")
         return False
+
+
 
 
 
@@ -705,352 +728,84 @@ def stop_trading_thread():
 def automated_trading_loop():
     """Main loop for automated trading"""
     global preise, trading_enabled
-    
+
     logging.info(f"Starting capital: ${guthaben} | Bitcoin: {bitcoin_bestand} BTC")
-    
-    # Set minimum trade amount but remove cooldown as requested
+
     min_trade_amount_usd = 1.0  # Minimum trade size in USD
-    
+
     while trading_enabled:
         try:
-            # Load configuration
             config = lade_konfiguration()
-            verkaufswert = config.get("verkaufswert", 94500)
-            ma_window = config.get("ma_window", 3)
             price_check_interval = config.get("price_check_interval", 30)
-            
-            # Get current price
+
             aktueller_preis = get_bitcoin_price()
             if aktueller_preis is not None:
                 logging.info(f"Current Bitcoin price: ${aktueller_preis}")
-                
-                # Store price in list with increased capacity
                 preise.append(aktueller_preis)
-                if len(preise) > 1000:  # Keep max 1000 prices in the list (stark erhöht für bessere Analysen)
+                if len(preise) > 1000:
                     preise.pop(0)
-                
-                # Berechne alle technischen Indikatoren
+
                 indikatoren = aktualisiere_indikatoren(preise)
-                # --- RSI einfügen ---
-                # --- Indikatorwerte sicher abfragen ---
                 rsi = indikatoren.get("rsi")
                 upper_band = indikatoren.get("upper_band")
                 lower_band = indikatoren.get("lower_band")
                 ma_short = indikatoren.get("ma_short")
                 ma_medium = indikatoren.get("ma_medium")
-                ma_long = indikatoren.get("ma_long")
                 support = indikatoren.get("support")
                 resistance = indikatoren.get("resistance")
 
-                kauf_signale = []
-                verkauf_signale = []
+                # Nur zur Analyse verwenden – kein BTC-Handel mehr
+                logging.info("📊 Nur Analyse – kein automatischer BTC-Handel aktiv")
 
-                # --- RSI ---
-                if rsi is not None:
-                    if rsi < 30:
-                        kauf_signale.append(f"RSI überverkauft: {rsi:.1f}")
-                    elif rsi > 70:
-                        verkauf_signale.append(f"RSI überkauft: {rsi:.1f}")
-                else:
-                    logging.warning("RSI konnte nicht berechnet werden – zu wenig Daten.")
-
-                # --- Bollinger Bands ---
-                if lower_band is not None and aktueller_preis <= lower_band * 1.01:
-                    kauf_signale.append(f"Preis am unteren Bollinger-Band: ${aktueller_preis:.2f}")
-                if upper_band is not None and aktueller_preis >= upper_band * 0.99:
-                    verkauf_signale.append(f"Preis am oberen Bollinger-Band: ${aktueller_preis:.2f}")
-
-                # --- Moving Averages ---
-                if ma_short and ma_medium and ma_short < ma_medium:
-                    verkauf_signale.append(f"Death Cross: MA9 ({ma_short:.2f}) unter MA20 ({ma_medium:.2f})")
-
-                # --- Support / Resistance ---
-                if support is not None and aktueller_preis <= support * 1.01:
-                    kauf_signale.append(f"Preis nahe Support-Level: ${support:.2f}")
-                if resistance is not None and aktueller_preis >= resistance * 0.99:
-                    verkauf_signale.append(f"Preis nahe Resistance-Level: ${resistance:.2f}")
-                
-                # Standardmäßig den konfigurierten Moving Average verwenden (Kompatibilität mit altem Code)
-                durchschnitt = berechne_gleitenden_durchschnitt(preise, ma_window)
-
-                # 💥 AGGRESSIV: Kauf- & Verkaufssignale erweitern
-
-                # ----- KAUFSIGNALE -----
-                if rsi is not None and rsi < 40:
-                    kauf_signale.append(f"RSI < 40 – früher Einstieg ({rsi})")
-
-                if aktueller_preis < durchschnitt * 0.99:
-                    kauf_signale.append(f"Preis unter MA – Einstiegschance")
-                
-                # Zusätzlicher Einstieg bei leichtem Kurs unter Durchschnitt
-                if durchschnitt is not None and aktueller_preis < durchschnitt * 0.997:
-                    kauf_signale.append("📉 Preis leicht unter MA – Einstieg möglich")
-    
-                if len(preise) >= 3 and preise[-1] < preise[-2] * 0.97:
-                    kauf_signale.append("3% Crash erkannt – Schnapp-Buy")
-
-                # ----- VERKAUFSSIGNALE -----
-                if upper_band is not None and aktueller_preis > upper_band * 0.99:
-                    verkauf_signale.append("Oberes Bollinger-Band fast erreicht")
-
-                if rsi is not None and rsi > 65:
-                    verkauf_signale.append(f"RSI über 65 – Gewinnmitnahme ({rsi})")
-
-                # Statt ab 2 Signalen → jetzt ab 1!
-                if len(verkauf_signale) >= 1 and bitcoin_bestand > 0:
-                    signal_faktor = min(1.0, len(verkauf_signale) * 0.4)
-                    selling_percentage = 0.1 + (0.3 * signal_faktor)  # 10–40 %
-                    btc_to_sell = bitcoin_bestand * selling_percentage
-                    sell_value = btc_to_sell * aktueller_preis
-
-                    if sell_value >= min_trade_amount_usd:
-                        verkaufen_dynamic(aktueller_preis, selling_percentage)
-                        logging.info(f"🔥 AGGRESSIVER VERKAUF ausgelöst wegen: {', '.join(verkauf_signale)}")
-
-                # Wenn genug Daten für erweiterte Indikatoren vorhanden sind, verwende diese
-                if indikatoren and len(indikatoren) > 0:
-                    # Fortgeschrittene Handelsstrategien basierend auf technischen Indikatoren
-                    
-                    # Kauf-/Verkaufssignale aus Indikatoren extrahieren
-                    ma_short = indikatoren.get('ma_short')
-                    ma_medium = indikatoren.get('ma_medium')
-                    ma_long = indikatoren.get('ma_long')
-                    upper_band = indikatoren.get('upper_band')
-                    lower_band = indikatoren.get('lower_band')
-                    rsi = indikatoren.get('rsi')
-                    support = indikatoren.get('support')
-                    resistance = indikatoren.get('resistance')
-                    
-                    # KAUFSIGNALE AUS TECHNISCHEN INDIKATOREN
-                    kauf_signale = []
-                    
-                    # 1. Bollinger-Band Kaufsignal: Preis nahe oder unter dem unteren Band
-                    if lower_band is not None and aktueller_preis <= lower_band * 1.01:
-                        kauf_signale.append(f"Bollinger-Band: Preis (${aktueller_preis:.2f}) am unteren Band (${lower_band:.2f})")
-                    
-                    # 2. RSI Kaufsignal: Überverkauft (RSI < 30)
-                    if rsi is not None and rsi < 55:
-                        kauf_signale.append(f"RSI überverkauft: {rsi:.1f}")
-                    
-                    # 3. Support-Level Kaufsignal: Preis nahe am Support
-                    if support is not None and aktueller_preis <= support * 1.01:
-                        kauf_signale.append(f"Preis nahe Support-Level: ${support:.2f}")
-                    
-                    # 4. Golden Cross Kaufsignal: Kurzfristiger MA kreuzt langfristigen MA von unten nach oben
-                    if ma_short is not None and ma_medium is not None and ma_short > ma_medium and len(historic_data.get('prices', [])) > 2:
-                        # Prüfe, ob es vorher eine Kreuzung gab
-                        prev_ma_short = berechne_gleitenden_durchschnitt(preise[:-1], 9) 
-                        prev_ma_medium = berechne_gleitenden_durchschnitt(preise[:-1], 20)
-                        if len(preise) > 10 and prev_ma_short is not None and prev_ma_medium is not None and prev_ma_short < prev_ma_medium:
-                            kauf_signale.append(f"Golden Cross: MA9 (${ma_short:.2f}) über MA20 (${ma_medium:.2f})")
-                    
-                    # VERKAUFSSIGNALE AUS TECHNISCHEN INDIKATOREN
-                    verkauf_signale = []
-                    
-                    # 1. Bollinger-Band Verkaufssignal: Preis nahe oder über dem oberen Band
-                    if upper_band is not None and aktueller_preis >= upper_band * 0.99:
-                        verkauf_signale.append(f"Bollinger-Band: Preis (${aktueller_preis:.2f}) am oberen Band (${upper_band:.2f})")
-                    
-                    # 2. RSI Verkaufssignal: Überkauft (RSI > 70)
-                    if rsi is not None and rsi > 70:
-                        verkauf_signale.append(f"RSI überkauft: {rsi:.1f}")
-                    
-                    # 3. Resistance-Level Verkaufssignal: Preis nahe am Widerstand
-                    if resistance is not None and aktueller_preis >= resistance * 0.99:
-                        verkauf_signale.append(f"Preis nahe Resistance-Level: ${resistance:.2f}")
-                    
-                    # 4. Death Cross Verkaufssignal: Kurzfristiger MA kreuzt langfristigen MA von oben nach unten
-                    if ma_short is not None and ma_medium is not None and ma_short < ma_medium and len(historic_data.get('prices', [])) > 2:
-                        # Prüfe, ob es vorher eine Kreuzung gab
-                        prev_ma_short = berechne_gleitenden_durchschnitt(preise[:-1], 9)
-                        prev_ma_medium = berechne_gleitenden_durchschnitt(preise[:-1], 20)
-                        if len(preise) > 10 and prev_ma_short is not None and prev_ma_medium is not None and prev_ma_short > prev_ma_medium:
-                            verkauf_signale.append(f"Death Cross: MA9 (${ma_short:.2f}) unter MA20 (${ma_medium:.2f})")
-                    
-                    # HANDLUNGEN BASIEREND AUF KAUF-/VERKAUFSSIGNALEN
-                    config = lade_konfiguration()
-                    min_trade_amount_usd = config.get("min_trade_amount_usd", 1.0)
-                    # Kaufsignal, wenn mindestens 2 Indikatoren gleichzeitig ein Kaufsignal geben
-                    if len(kauf_signale) >= 1 and guthaben > min_trade_amount_usd:
-                        # Je mehr Signale, desto aggressiver kaufen
-                        signal_faktor = min(1.0, len(kauf_signale) * 0.3)  # 2 Signale = 0.6, 3 Signale = 0.9, >=4 Signale = 1.0
-                        
-                        # Kaufprozentsatz basierend auf Signalstärke
-                        buying_percentage = config.get("buying_percentage", 0.05) * (1 + signal_faktor)
-                        buy_amount = guthaben * buying_percentage
-                        
-                        if buy_amount >= min_trade_amount_usd:
-                            # Führe den Kauf aus
-                            kaufen_dynamic(aktueller_preis, buying_percentage)
-                            logging.info(f"TECHNISCHE KAUFSIGNALE aktiviert: {', '.join(kauf_signale)}")
-                            logging.info(f"Kauf mit {buying_percentage*100:.1f}% des Guthabens (${buy_amount:.2f})")
-                        else:
-                            logging.info(f"Kaufsignale erkannt, aber Betrag zu gering: ${buy_amount:.2f} < ${min_trade_amount_usd}")
-                    
-                    # Verkaufssignal, wenn mindestens 2 Indikatoren gleichzeitig ein Verkaufssignal geben
-                    elif len(verkauf_signale) >= 2 and bitcoin_bestand > 0:
-                        # Je mehr Signale, desto aggressiver verkaufen
-                        signal_faktor = min(1.0, len(verkauf_signale) * 0.3)  # 2 Signale = 0.6, 3 Signale = 0.9, >=4 Signale = 1.0
-                        
-                        # Verkaufsprozentsatz basierend auf Signalstärke
-                        min_selling_percentage = config.get("min_selling_percentage", 0.05)
-                        max_selling_percentage = config.get("max_selling_percentage", 0.25)
-                        
-                        # Dynamische Verkaufsmenge basierend auf Signalstärke
-                        selling_percentage = min_selling_percentage + (max_selling_percentage - min_selling_percentage) * signal_faktor
-                        btc_to_sell = bitcoin_bestand * selling_percentage
-                        sell_value = btc_to_sell * aktueller_preis
-                        
-                        if sell_value >= min_trade_amount_usd:
-                            # Führe den Verkauf aus
-                            verkaufen_dynamic(aktueller_preis, selling_percentage)
-                            logging.info(f"TECHNISCHE VERKAUFSSIGNALE aktiviert: {', '.join(verkauf_signale)}")
-                            logging.info(f"Verkauf von {selling_percentage*100:.1f}% BTC-Bestand (${sell_value:.2f})")
-                        else:
-                            logging.info(f"Verkaufssignale erkannt, aber Betrag zu gering: ${sell_value:.2f} < ${min_trade_amount_usd}")
-                    
-                    # Wenn keine Signale oder zu wenige, nutze traditionelle Strategien
-                    else:
-                        # Keine klaren Indikatorsignale: Nutze die traditionelle MA-basierte Strategie
-                        if durchschnitt is not None:
-                            logging.info(f"Moving average ({ma_window}): ${durchschnitt}")
-                            
-                            # Calculate difference
-                            differenz = aktueller_preis - durchschnitt
-                            logging.info(f"Difference from average: ${differenz:.2f}")
-                            
-                            # Strategie 1: Kaufen bei leichtem Anstieg (wie bisher)
-                            if aktueller_preis > durchschnitt and aktueller_preis <= durchschnitt + 50:
-                                # Small increase - buy more (only if we have enough balance)
-                                buying_percentage = config.get("buying_percentage", 0.05)
-                                buy_amount = guthaben * buying_percentage
-                                
-                                if buy_amount >= min_trade_amount_usd:
-                                    kaufen_dynamic(aktueller_preis, buying_percentage)
-                                    logging.info(f"Making a buy trade (small increase) with {buying_percentage*100}% of balance (${buy_amount:.2f})")
-                                else:
-                                    logging.info(f"Buy amount ${buy_amount:.2f} below minimum trade size of ${min_trade_amount_usd}")
-                            
-                            # Strategie 2: Kaufen bei Kursfall (neu - aggressiver!)
-                            elif aktueller_preis < durchschnitt:
-                                # Der Preis liegt unter dem Durchschnitt - "Buy the Dip"
-                                # Je größer der Abfall, desto größer der Kauf (mit Begrenzung)
-                                diff_percentage = (durchschnitt - aktueller_preis) / durchschnitt
-                                
-                                # NEUE STRATEGIE: Aggressivere Kaufmengen
-                                # Maximaler Kauf bei 3% Kursfall (kaufe 20% des Guthabens statt vorher 10%)
-                                # Bei kleineren Kursfällen entsprechend weniger
-                                max_buying_percentage = 0.20  # Maximal 20% des Guthabens investieren (erhöht von 10%)
-                                min_buying_percentage = 0.03  # Mindestens 3% des Guthabens investieren (erhöht von 2%)
-                                
-                                # Stärkere Reaktion auf Preisdips: Multiplikator 5 statt vorher 3
-                                # Bei 1% Dip kauft der Bot jetzt ca. 8% des Guthabens (vorher 5%)
-                                buying_percentage = min(max_buying_percentage, 
-                                                     max(min_buying_percentage, diff_percentage * 5))
-                                
-                                buy_amount = guthaben * buying_percentage
-                                
-                                # Niedrigere Schwelle aus der Konfiguration lesen
-                                min_dip_percentage = config.get("min_dip_percentage", 0.002)  # Default: 0.2%
-                                
-                                # Kauf nur, wenn genug Guthaben und der Dip größer als Mindestwert
-                                if buy_amount >= min_trade_amount_usd and diff_percentage >= min_dip_percentage:
-                                    kaufen_dynamic(aktueller_preis, buying_percentage)
-                                    logging.info(f"Buy the dip! Price {diff_percentage*100:.1f}% below average. " + 
-                                               f"Buying with {buying_percentage*100:.1f}% of balance (${buy_amount:.2f})")
-                                else:
-                                    if diff_percentage < min_dip_percentage:
-                                        logging.info(f"Price dip of {diff_percentage*100:.2f}% too small to trigger buy (minimum: {min_dip_percentage*100:.2f}%)")
-                                    else:
-                                        logging.info(f"Buy amount ${buy_amount:.2f} below minimum trade size of ${min_trade_amount_usd}")
-                            
-                            elif aktueller_preis > durchschnitt + 50:
-                                # Verkaufsstrategie: Gradueller Verkauf basierend auf Höhe über dem Durchschnitt
-                                # Je höher über dem Durchschnitt, desto mehr wird verkauft, aber in kleineren Schritten
-                                
-                                # Berechnen, wie weit der Preis über dem Durchschnitt liegt (in Prozent)
-                                prozent_ueber_durchschnitt = (aktueller_preis - durchschnitt) / durchschnitt
-                                
-                                # Basis-Verkaufsprozentsatz (Minimum)
-                                min_selling_percentage = config.get("min_selling_percentage", 0.05)  # Start mit 5%
-                                
-                                # Maximaler Verkaufsprozentsatz: Im Hochpreisbereich genau 25% verkaufen
-                                max_selling_percentage = config.get("max_selling_percentage", 0.25)  # Genau 25% (ein Viertel) verkaufen
-                                
-                                # Berechne Verkaufsprozentsatz basierend auf Abstand zum Durchschnitt
-                                # Bei 5% über Durchschnitt -> ca. 15% verkaufen
-                                # Bei 8% oder mehr über Durchschnitt -> genau 25% verkaufen
-                                selling_percentage = min(max_selling_percentage, 
-                                                      min_selling_percentage + (prozent_ueber_durchschnitt * 2.5))
-                                
-                                # Verkaufswerte berechnen
-                                btc_to_sell = bitcoin_bestand * selling_percentage
-                                sell_value = btc_to_sell * aktueller_preis
-                                
-                                # Stufenweise Verkaufsintensität für Logging
-                                if prozent_ueber_durchschnitt > 0.1:
-                                    verkaufstyp = "starker"
-                                elif prozent_ueber_durchschnitt > 0.05:
-                                    verkaufstyp = "moderater"
-                                else:
-                                    verkaufstyp = "leichter"
-                                
-                                # Verkauf durchführen, wenn genug BTC vorhanden sind
-                                if sell_value >= min_trade_amount_usd:
-                                    verkaufen_dynamic(aktueller_preis, selling_percentage)
-                                    logging.info(f"Verkauf bei {verkaufstyp} Kursanstieg: {prozent_ueber_durchschnitt*100:.1f}% über Durchschnitt. " + 
-                                               f"Verkaufe {selling_percentage*100:.1f}% des BTC-Bestands (${sell_value:.2f})")
-                                else:
-                                    logging.info(f"Sell value ${sell_value:.2f} below minimum trade size of ${min_trade_amount_usd}")
-                else:  # Nicht genug Daten für fortgeschrittene Indikatoren
-                    # Traditionelle Moving Average Strategie (Fallback)
-                    if durchschnitt is not None:
-                        logging.info(f"Moving average ({ma_window}): ${durchschnitt}")
-                        
-                        # Calculate difference
-                        differenz = aktueller_preis - durchschnitt
-                        logging.info(f"Difference from average: ${differenz:.2f}")
-                        
-                        # Einfache MA-basierte Strategie (siehe oben in den Indikator-Strategien)
-                        # Verwende einfachere Regeln bei nicht genug Daten
-                
-                # Zusätzliche Verkaufsoption basierend auf konfiguriertem Verkaufswert
-                # (Dieser Wert dient als "Notausgang" und sollte nur genutzt werden wenn der Preis den konfigurierten Wert überschreitet)
-                if aktueller_preis > verkaufswert:
-                    # Auch hier: Moderatere Verkaufsstrategie (15% statt vorher 25%)
-                    selling_percentage = 0.15
-                    btc_to_sell = bitcoin_bestand * selling_percentage
-                    sell_value = btc_to_sell * aktueller_preis
-                    
-                    if sell_value >= min_trade_amount_usd:
-                        logging.info(f"Preis über konfiguriertem Schwellenwert von ${verkaufswert} - Verkaufe 15% des BTC-Bestands")
-                        verkaufen_dynamic(aktueller_preis, selling_percentage)
-                    else:
-                        logging.info(f"Sell value ${sell_value:.2f} below minimum trade size of ${min_trade_amount_usd}")
             else:
                 logging.error("Error fetching price. Waiting for next attempt...")
 
-            # Marktanalyse aufrufen
             marktanalyse = analysiere_markt(preise)
             logging.info(
                 f"📊 Marktanalyse: Trend={marktanalyse['trend']} | Momentum={marktanalyse['momentum']} | Empfehlung={marktanalyse['empfehlung']}")
 
-            # Beispiel: bei starker negativer Empfehlung auf Verkauf forcieren
-            if marktanalyse['empfehlung'].startswith("schnell verkaufen") and bitcoin_bestand > 0:
-                btc_to_sell = bitcoin_bestand * 0.25  # direkt 25% verkaufen
-                sell_value = btc_to_sell * aktueller_preis
-                if sell_value >= min_trade_amount_usd:
-                    verkaufen_dynamic(aktueller_preis, 0.25)
-                    logging.info("🚨 Automatischer Panik-Verkauf wegen Marktanalyse ausgelöst!")
-
-            # Pause between checks
-            time.sleep(price_check_interval)
-            
         except Exception as e:
             logging.error(f"Error in trading loop: {e}")
-            time.sleep(10)  # Wait a bit on error
-    
+            time.sleep(10)
+
+        try:
+            aktuelle_top_coins = get_mexc_cheap_coins(limit_usd=5, max_results=5)
+            top_symbole = [coin["symbol"] for coin in aktuelle_top_coins]
+
+            ignored_file = "ignored_coins.json"
+            if os.path.exists(ignored_file):
+                with open(ignored_file, "r") as f:
+                    ignored_coins = json.load(f)
+            else:
+                ignored_coins = []
+
+            for symbol in list(wallet["positions"].keys()):
+                if symbol not in top_symbole and symbol not in ignored_coins:
+                    aktuelle_preise = requests.get("https://api.mexc.com/api/v3/ticker/price", timeout=10).json()
+                    preis_map = {x["symbol"]: float(x["price"]) for x in aktuelle_preise}
+                    aktueller_preis = preis_map.get(symbol)
+
+                    if aktueller_preis:
+                        kaufwert = wallet["positions"][symbol] * 0.98
+                        verkaufswert = wallet["positions"][symbol] * aktueller_preis
+
+                        if verkaufswert > kaufwert:
+                            verkaufen_dynamic(aktueller_preis, 1.0, symbol_override=symbol)
+                            logging.info(f"🚮 {symbol} ist nicht mehr in der Liste und im Gewinn – wird verkauft.")
+                            ignored_coins.append(symbol)
+                        else:
+                            logging.info(f"⏳ {symbol} ist nicht mehr in der Liste, aber noch im Minus – wird gehalten.")
+
+            with open(ignored_file, "w") as f:
+                json.dump(ignored_coins, f)
+
+        except Exception as e:
+            logging.warning(f"⚠️ Fehler bei Auto-Verkauf von Coins außerhalb der Topliste: {e}")
+
+        time.sleep(price_check_interval)
+
     logging.info("Trading loop stopped")
+
 
 def analysiere_markt(preise):
     if len(preise) < 10:

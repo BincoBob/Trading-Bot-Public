@@ -1,0 +1,13 @@
+# Sensible Daten
+.env
+config.json
+
+# Temporäres Zeug
+__pycache__/
+*.pyc
+*.zip
+*.lock
+
+# IDE & OS-Dateien
+.DS_Store
+.vscode/
