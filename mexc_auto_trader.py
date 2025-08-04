@@ -58,7 +58,7 @@ def get_mexc_cheap_coins(limit_usd=5, top_n=5, min_volume_usdt=300000, smart_sug
             })
 
         # Top-N nach Volatilität auswählen
-        top_coins = sorted(potential, key=lambda x: x['volatility'], reverse=True)[:top_n]
+        top_coins = sorted(potential, key=xxx x: x['volatility'], reverse=True)[:top_n]
         result = []
 
         for coin in top_coins:
