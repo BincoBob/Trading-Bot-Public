@@ -143,7 +143,7 @@ def init_bot():
             coin['volatility'] = random.uniform(1, 15)  # Später durch echte Daten ersetzen
 
         # Sortiere nach höchster Volatilität
-        top5 = sorted(günstige_coins, key=lambda c: c["volatility"], reverse=True)[:5]
+        top5 = sorted(günstige_coins, key=xxx c: c["volatility"], reverse=True)[:5]
 
         print("\n📈 Top 5 Coins unter $5 mit höchster (simulierter) Volatilität:")
         for coin in top5:
