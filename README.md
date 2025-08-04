@@ -1,4 +1,4 @@
-# KI-Trading-Bot (Bitcoin / MEXC / Python)
+# KI-Trading-Bot (Crypto / MEXC / Python)
 
 ## 🧠 Projektbeschreibung
 
