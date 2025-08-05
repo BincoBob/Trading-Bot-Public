@@ -6,6 +6,7 @@ Dieses Projekt ist ein vollständig automatisierter Trading-Bot für Kryptowähr
 Der Bot nutzt Live-Marktdaten, trifft Kauf-/Verkaufsentscheidungen und verwaltet ein echtes Wallet über die MEXC API.
 
 > ⚠️ **Work in Progress**: Das Projekt wird laufend weiterentwickelt und optimiert.
+> ⚠️ **Hinweis**: Der API-Key im Code ist deaktiviert. Die Aktuelle Version nutzt '.env' mit '.gitignore' zur sicheren Konfiguration.
 
 ---
 
